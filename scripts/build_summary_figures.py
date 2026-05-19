@@ -92,6 +92,8 @@ TIER1_NAME_RE = re.compile(r"tier1_(?P<kind>[a-z_2d]+?)_beta(?P<beta>[0-9]+)_see
 def build_tier1():
     rows = []
     for d in sorted(RUNS.glob("tier1_*")):
+        if not d.is_dir():
+            continue
         m = TIER1_NAME_RE.search(d.name)
         if not m:
             continue
@@ -141,12 +143,16 @@ def build_tier1():
 # -----------------------------------------------------------------------------
 # tier2: phase diagram
 # -----------------------------------------------------------------------------
-TIER2_NAME_RE = re.compile(r"tier2_(?P<kind>[a-z]+?)(?P<n>\d+)_beta(?P<beta>[0-9.]+)_seed(?P<seed>\d+)")
+TIER2_NAME_RE = re.compile(
+    r"tier2_(?P<kind>lattice_2d|curie_weiss|block)(?P<n>\d+)_beta(?P<beta>[0-9]+)_seed(?P<seed>\d+)"
+)
 
 
 def build_tier2():
     by_family = defaultdict(lambda: defaultdict(list))
     for d in sorted(RUNS.glob("tier2_*")):
+        if not d.is_dir():
+            continue
         m = TIER2_NAME_RE.search(d.name)
         if not m:
             continue
@@ -204,6 +210,8 @@ TIER34_NAME_RE = re.compile(
 def _build_scaling(tier_tag: str):
     by_size = defaultdict(lambda: defaultdict(list))
     for d in sorted(RUNS.glob(f"tier{tier_tag}_*")):
+        if not d.is_dir():
+            continue
         m = TIER34_NAME_RE.search(d.name)
         if not m or m["tier"] != tier_tag:
             continue
@@ -262,6 +270,8 @@ TIER5_NAME_RE = re.compile(
 def build_tier5():
     by_task = defaultdict(lambda: defaultdict(list))
     for d in sorted(RUNS.glob("tier5_*")):
+        if not d.is_dir():
+            continue
         m = TIER5_NAME_RE.search(d.name)
         if not m:
             continue

@@ -46,6 +46,8 @@ def tier1():
     pat = re.compile(r"tier1_(?P<kind>[a-z_2d]+?)_beta(?P<beta>\d+)_seed(?P<seed>\d+)")
     by_regime = defaultdict(list)
     for d in sorted(RUNS.glob("tier1_*")):
+        if not d.is_dir():
+            continue
         m = pat.search(d.name)
         if not m or not (d / "history.json").exists():
             continue
@@ -66,9 +68,13 @@ def tier1():
 
 
 def tier2():
-    pat = re.compile(r"tier2_(?P<kind>[a-z]+?)(?P<n>\d+)_beta(?P<beta>[0-9.]+)_seed(?P<seed>\d+)")
+    pat = re.compile(
+        r"tier2_(?P<kind>lattice_2d|curie_weiss|block)(?P<n>\d+)_beta(?P<beta>[0-9]+)_seed(?P<seed>\d+)"
+    )
     by_family = defaultdict(lambda: defaultdict(list))
     for d in sorted(RUNS.glob("tier2_*")):
+        if not d.is_dir():
+            continue
         m = pat.search(d.name)
         if not m or not (d / "history.json").exists():
             continue
@@ -96,6 +102,8 @@ def _scaling(tier_tag: str):
     )
     by_n = defaultdict(lambda: defaultdict(list))
     for d in sorted(RUNS.glob(f"tier{tier_tag}_*")):
+        if not d.is_dir():
+            continue
         m = pat.search(d.name)
         if not m or m["tier"] != tier_tag or not (d / "history.json").exists():
             continue
@@ -132,6 +140,8 @@ def tier5():
     )
     by_task = defaultdict(lambda: defaultdict(list))
     for d in sorted(RUNS.glob("tier5_*")):
+        if not d.is_dir():
+            continue
         m = pat.search(d.name)
         if not m or not (d / "history.json").exists():
             continue

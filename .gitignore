@@ -58,6 +58,7 @@ runs_h100/tier4_fss_lattice1024_*/final.pt
 *.toc
 *.pdf
 !notes/pdfs/*.pdf
+!figures/blog/*.pdf
 
 # OS
 .DS_Store

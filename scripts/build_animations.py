@@ -347,12 +347,16 @@ def anim_dashboard(beta_runs: List[Path], out_dir: Path):
         l4, = ax_s.plot([], [], "o-", ms=3, color=color, label=title)
         lines_r.append(l1); lines_d.append(l2); lines_a.append((l3a, l3c, l3l)); lines_s.append(l4)
 
-    ax_r.set_xlabel("epoch"); ax_r.set_ylabel(r"$r_{\rm eff}(G)$")
+    # Top-row x-axes share with the bottom row's alignment panel; drop the
+    # "epoch" label so it doesn't crash into the lower row's subplot titles.
+    ax_r.set_ylabel(r"$r_{\rm eff}(G)$")
     ax_r.set_yscale("log"); ax_r.set_title("effective rank")
+    ax_r.tick_params(labelbottom=False)
     ax_r.legend(fontsize=8)
-    ax_d.set_xlabel("epoch"); ax_d.set_ylabel(r"$\Delta_{\rm baseline}$")
+    ax_d.set_ylabel(r"$\Delta_{\rm baseline}$")
     ax_d.set_title("prediction performance")
     ax_d.set_ylim(-0.05, 1.05)
+    ax_d.tick_params(labelbottom=False)
     ax_a.set_xlabel("epoch"); ax_a.set_ylabel("alignment (k=5)")
     ax_a.set_ylim(0, 1.05); ax_a.set_title("alignment with $A$, $C$, $C_\\tau$")
     ax_a.legend(fontsize=7, ncol=3)

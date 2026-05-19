@@ -4,7 +4,7 @@ Live document — updated as each tier completes on the runpod H100. The science
 laid out in `docs/theory_spin_rnn.md` (theory) and `HANDOFF.md` (queue). This
 file is the running readout.
 
-Last update: 2026-05-19, status: **Tier 2 lattice family complete (30/69); curie/block running**.
+Last update: 2026-05-19, status: **Tier 2 complete (69/69); Tier 3 launching**.
 
 ---
 

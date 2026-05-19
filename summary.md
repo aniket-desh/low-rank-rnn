@@ -204,6 +204,73 @@ Full stats in `figures/summary/tier2_stats.md`.
 
 ---
 
+## 3b. Post-hoc lag and k sweeps (lattice family)
+
+Two additional diagnostics computed from Tier 1/2 saved models, beyond the
+default lag=1 and k=5 that the trainer logs.
+
+### Multi-lag align(G, $C_\tau$)
+
+`scripts/post_hoc_lag.py` resamples fresh trajectories per run and computes
+$\mathrm{align}(G, C_\tau)$ for $\tau\in\{1,2,5,10,20\}$. Plot below.
+
+![lag sweep](figures/summary/lag_sweep.png)
+
+Pattern across the lattice β-sweep:
+
+- **High-T (β=0.1–0.3)**: alignment is roughly flat in τ — equilibrium and
+  short-lag covariance carry the same information because mixing is fast.
+- **Just super-critical (β=0.46)**: alignment GROWS with τ for some seeds,
+  peaking around τ=5–10 (0.57→0.73). Suggestive of H3 (alignment with
+  *slow* modes rather than instantaneous covariance), but seed variance is
+  too large to be conclusive at this n.
+- **Low-T (β=0.5–0.8)**: alignment is flat at ~0.4, regardless of τ.
+  Operator has collapsed to ~rank-1 (lattice → magnetization predictor),
+  and the slow modes coincide with the equilibrium mean field, so all
+  $C_\tau$ have the same top mode.
+
+### Multi-k align(G, A)
+
+`scripts/k_sweep.py` computes alignment at $k\in\{1, 2, 3, 5, 8, 10, 15,
+20, 30, 50\}$ for a representative lattice run per β. The qualitative shape
+is universal across temperatures:
+
+![k sweep lattice](figures/summary/k_sweep_lattice.png)
+
+| β | k=1 | k=2 | k=3 | k=5 | k=10 | k=50 |
+|---|---|---|---|---|---|---|
+| 0.20 | 0.52 | **1.00** | 0.67 | 0.57 | **1.00** | 0.93 |
+| 0.42 | 0.50 | 0.96 | 0.65 | 0.53 | 0.94 | 0.83 |
+| 0.44 | 0.50 | 0.98 | 0.66 | 0.50 | 0.75 | 0.81 |
+| 0.46 | 0.49 | 0.98 | 0.66 | 0.50 | 0.68 | 0.81 |
+| 0.50 | 0.49 | 0.98 | 0.65 | 0.44 | 0.42 | 0.80 |
+| 0.80 | 0.50 | 0.92 | 0.66 | 0.42 | 0.33 | 0.78 |
+
+The two universal features:
+
+1. **align at k=1 is ≈ 0.5 across all β.** The top-1 left singular vector
+   of $G$ is not the top-1 of $A$. The lattice has a 2-fold degeneracy at
+   the top of $A$'s spectrum (the two Fourier modes
+   $(\cos,\sin)$ at the slowest wavenumber both have the same singular
+   value), so a 45° rotation within that 2D plane gives the same align.
+2. **align at k=2 is ≈ 1.0 across all β.** The top-2 subspaces of $G$ and
+   $A$ are essentially identical, *regardless of temperature*. This is the
+   true universal feature — every trained operator captures the 2D
+   leading-mode plane, even when prediction signal is near zero (β=0.2,
+   Δ=0.13) or the operator has collapsed to rank 1.7 (β=0.8).
+3. **At k=50 (essentially full rank for n=64), alignments lie in [0.78,
+   0.93].** Operators are highly correlated but not identical — about 80%
+   of the total singular structure is shared.
+
+The picture is more nuanced than "low-rank emerges": *something* (the top
+2D plane) is locked in from the start, and what changes with temperature
+is whether the network can spend additional capacity on the remaining
+modes. The "low-rank collapse" we see at near-critical is therefore better
+described as a *pruning of secondary modes*, not as a 1D emergent
+structure. The 2D core is universal.
+
+---
+
 ## 4. Tier 3 — scale sweep (27 runs)
 
 n ∈ {64, 256, 1024} × β ∈ {0.2, 0.44, 0.6} × 3 seeds, lattice_2d.

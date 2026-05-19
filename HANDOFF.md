@@ -118,63 +118,383 @@ this run as the weak-signal control.
 
 ---
 
-## 5. Pending work (the queue)
+## 5. H100 experiment plan (the actual queue)
 
-This is what was about to run when the sweep was cancelled. The runpod CC instance
-should pick up here.
+The earlier CPU sweep (`scripts/sweep_spin_e1000.sh`) is **superseded** by what
+follows. That script just ran the same 4 regimes longer plus stronger Curie/block;
+useful as a CPU sanity loop, but on an H100 you should spend the compute on
+**scale × β × seeds × tasks**, not on repeating the small regime longer. The
+ChatGPT review (see `notes/training.tex` and the chat transcript at the top of
+the project history) makes the case for this and I agree.
 
-### 5.1 Remaining sweep (9 runs)
+All new runs go under `runs_h100/` (kept distinct from the CPU `runs/` so old
+and new results don't collide). Treat the 300-epoch CPU matrix and
+`runs/curie_beta02_e1000` as committed controls — do not delete or overwrite them.
 
-Already encoded in `scripts/sweep_spin_e1000.sh`. The first run (`curie_beta02_e1000`)
-finished locally and is already in the repo. Delete that one line from the script
-to skip it, then run:
+Before launching any tier, **smoke-test speed** (see §6.5 for the optimization
+order). If even the small smoke runs feel slow, land the §6 optimizations first.
+
+### 5.1 Tier 1 — replicate the original $n=64$ matrix with seeds and longer training
+
+Purpose: rule out seed-dependence and undertraining as confounds before doing
+anything fancier. Same scale as the CPU runs, but `seq_len=200`, `batch_size=256`,
+and 5 seeds.
 
 ```bash
-./scripts/sweep_spin_e1000.sh
+for seed in 0 1 2 3 4; do
+  for spec in \
+    "lattice_2d 0.2"  \
+    "lattice_2d 0.44" \
+    "curie_weiss 0.2" \
+    "block 0.5"; do
+    read -r kind beta <<<"$spec"
+    name="${kind}_beta${beta/./}_seed${seed}"
+    python scripts/run_spin_experiment.py \
+      --graph-kind $kind --beta $beta \
+      --n-spins 64 --hidden-dim 64 \
+      --epochs 1000 --seq-len 200 --batch-size 256 \
+      --eval-every 50 --seed $seed --device cuda \
+      --save-dir runs_h100/tier1_${name}
+  done
+done
 ```
 
-The 9 still-pending configs:
+Outputs: 20 runs. Expectation: `lattice_2d` β=0.2/0.44 reproduce the CPU story
+across seeds; `curie_weiss` β=0.2 and `block` β=0.5 stay flat (`Δ_baseline ≈ 0`).
 
-| name | graph | $\beta$ | role |
-|---|---|---|---|
-| `block_beta05_e1000`   | block      | 0.5  | weak-signal control (continuation of `block_beta05`) |
-| `lattice_beta02_e1000`  | lattice_2d | 0.2  | longer high-T sanity check |
-| `lattice_beta044_e1000` | lattice_2d | 0.44 | longer near-critical run (this one matters most) |
-| `curie_beta08_e1000`    | curie_weiss| 0.8  | strong-Curie ladder |
-| `curie_beta10_e1000`    | curie_weiss| 1.0  | strong-Curie ladder |
-| `curie_beta12_e1000`    | curie_weiss| 1.2  | strong-Curie ladder |
-| `block_beta10_e1000`    | block      | 1.0  | strong-block ladder |
-| `block_beta15_e1000`    | block      | 1.5  | strong-block ladder |
-| `block_beta20_e1000`    | block      | 2.0  | strong-block ladder |
+### 5.2 Tier 2 — temperature phase diagram at $n=64$
 
-On GPU, expect each run to drop from ~40 s (CPU) to a few seconds. The dominant
-overhead is the per-step Python loop in `VanillaRNN.forward`; consider switching
-to `torch.compile` or torch-RNN cell APIs if profiling shows it matters.
+Purpose: this is the **first real paper figure**. Map the dependence of
+$\Delta_{\rm baseline}$, $r_{\rm eff}(G)$, $\mathrm{align}(G,A)$, $\mathrm{align}(G,C)$,
+$\mathrm{align}(G,C_\tau)$ on $\beta$ for each graph family.
 
-### 5.2 Interpretation grid (from ChatGPT, encoded as a checklist)
+```bash
+# 2D lattice — densely cover the critical region β_c ≈ 0.4407
+for beta in 0.1 0.2 0.3 0.38 0.42 0.44 0.46 0.5 0.6 0.8; do
+  for seed in 0 1 2; do
+    python scripts/run_spin_experiment.py \
+      --graph-kind lattice_2d --beta $beta \
+      --n-spins 64 --hidden-dim 64 \
+      --epochs 1000 --seq-len 200 --batch-size 256 \
+      --eval-every 50 --seed $seed --device cuda \
+      --save-dir runs_h100/tier2_lattice64_beta${beta}_seed${seed}
+  done
+done
 
-For each (`curie_*`, `block_*`) regime, after the run finishes, answer:
+# Curie–Weiss — sweep through the mean-field transition (couplings are J/n, so
+# the interesting regime is β J ~ 1, i.e. β ≳ 1)
+for beta in 0.2 0.5 0.8 1.0 1.2 1.5 2.0; do
+  for seed in 0 1 2; do
+    python scripts/run_spin_experiment.py \
+      --graph-kind curie_weiss --beta $beta \
+      --n-spins 64 --hidden-dim 64 \
+      --epochs 1000 --seq-len 200 --batch-size 256 \
+      --eval-every 50 --seed $seed --device cuda \
+      --save-dir runs_h100/tier2_curie64_beta${beta}_seed${seed}
+  done
+done
 
-| If… | …then |
+# Block ferromagnet — same idea, J_in = 1, J_out = 0.2 are 1/n-scaled
+for beta in 0.5 0.8 1.0 1.2 1.5 2.0; do
+  for seed in 0 1 2; do
+    python scripts/run_spin_experiment.py \
+      --graph-kind block --beta $beta \
+      --n-spins 64 --hidden-dim 64 \
+      --epochs 1000 --seq-len 200 --batch-size 256 \
+      --eval-every 50 --seed $seed --device cuda \
+      --save-dir runs_h100/tier2_block64_beta${beta}_seed${seed}
+  done
+done
+```
+
+Outputs: 30 + 21 + 18 = 69 runs. Plot a $\beta$-by-metric figure per graph family.
+
+### 5.3 Tier 3 — scale $n$
+
+Purpose: test whether the geometry observed at $n=64$ survives at $n=256$ and
+$n=1024$. Three βs per size, three seeds per cell.
+
+```bash
+for n in 64 256 1024; do
+  for beta in 0.2 0.44 0.6; do
+    for seed in 0 1 2; do
+      python scripts/run_spin_experiment.py \
+        --graph-kind lattice_2d --beta $beta \
+        --n-spins $n --hidden-dim $n \
+        --epochs 1000 --seq-len 200 --batch-size 128 \
+        --eval-every 100 --align-k 10 \
+        --seed $seed --device cuda \
+        --save-dir runs_h100/tier3_lattice${n}_beta${beta}_seed${seed}
+    done
+  done
+done
+```
+
+For $n=1024$, if memory or time becomes an issue, drop `--seq-len` to 100 first,
+then `--batch-size` to 64. The Python loop in `VanillaRNN.forward` is unrolled
+over `seq_len`, so that knob has bigger compute effect than `batch_size`.
+
+### 5.4 Tier 4 — finite-size scaling near criticality (the headline experiment)
+
+If Tier 3 looks healthy, run this. It's the single sweep that, if positive,
+directly supports the project's thesis:
+
+> Near criticality, the learned $G=RJB$ becomes lower-rank and aligns more strongly
+> with covariance / lagged slow modes than with the microscopic coupling matrix,
+> and this effect strengthens with system size.
+
+```bash
+for n in 64 256 1024; do
+  for beta in 0.36 0.40 0.42 0.44 0.46 0.48 0.52; do
+    for seed in 0 1 2; do
+      python scripts/run_spin_experiment.py \
+        --graph-kind lattice_2d --beta $beta \
+        --n-spins $n --hidden-dim $n \
+        --epochs 1000 --seq-len 200 --batch-size 128 \
+        --eval-every 100 --align-k 10 \
+        --seed $seed --device cuda \
+        --save-dir runs_h100/tier4_fss_lattice${n}_beta${beta}_seed${seed}
+    done
+  done
+done
+```
+
+Outputs: 63 runs. The cross-run plot is $\beta$ on the x-axis, one of
+$\{r_{\rm eff}(G),\ \mathrm{align}(G,A),\ \mathrm{align}(G,C),\ \mathrm{align}(G,C_\tau)\}$
+on the y-axis, one curve per $n$ (with seed-mean ± std as a band).
+
+### 5.5 Task extensions (worth landing before the n=1024 budget)
+
+The current CLI exposes only **one-step full-state prediction**. That's fine for
+the lattice phase-diagram, but the project's strongest novelty claim
+("coarse-graining is what the RNN actually represents") needs at least one
+harder task. The minimum addition is a `--task` flag in `scripts/run_spin_experiment.py`
+that dispatches to one of:
+
+| value | description | code change |
+|---|---|---|
+| `next_state` (default) | $x_t=s_t$, $y_t=s_{t+1}$, MSE | already implemented |
+| `denoise` | $x_t = M_t\odot s_t + (1-M_t)\odot\xi_t$, $y_t=s_t$ (clean current state), MSE | new branch in trainer; corrupt input with per-element Bernoulli mask + ±1 noise |
+| `partial` | $x_t = P_\Omega s_t$ with `obs_frac` fraction observed, $y_t=s_{t+1}$ (or $s_t$ full) | apply a fixed-per-run mask; either zero-fill missing coords or concat a mask channel |
+| `magnetization` | $y_t = \frac1n\sum_i s_i(t+1)$, scalar | change `output_dim=1` in `VanillaRNN`; MSE on a single scalar per timestep |
+
+Predictions per the theory note (`docs/theory_spin_rnn.md` §"Candidate tasks"):
+denoise and partial should shift weight from $\mathrm{align}(G,A)$ toward
+$\mathrm{align}(G,C)$ / $\mathrm{align}(G,C_\tau)$; magnetization should collapse
+$r_{\rm eff}(G)$ to ~1 across regimes.
+
+A minimal first step: run `--task denoise --mask-frac 0.3` against the lattice
+β-sweep and compare alignment ratios.
+
+### 5.6 Interpretation grid (after each tier)
+
+Use this as the read-out template. The CPU runs already filled in the top rows;
+the H100 runs should populate the rest.
+
+| Observation | Interpretation |
 |---|---|
-| original weak Curie / block improve after 1000 epochs | they were undertrained — but the 1000-epoch `curie_beta02_e1000` says **they aren't**, so this should be `false` |
-| original weak regimes stay near $L\approx 1$ AND stronger regimes improve | confirms weak-signal regime, not optimizer failure |
-| even strong Curie / block fail | task / model / loss issue — inspect alpha, lr, sequence length |
-| strong Curie becomes rank-1-ish and aligns with $A$ / $C$ | sanity check: mean-field collective mode recovered |
-| strong block becomes low-rank and block-structured (`same_block_mean_G` ≫ `diff_block_mean_G`) | strong evidence for emergent modular geometry |
+| Tier-1 lattice runs reproduce the CPU eff_rank / alignment values across all 5 seeds | core result is real, not a seed artifact |
+| Tier-1 weak Curie/block stay at $\Delta_{\rm baseline}\approx 0$ | weak-signal confirmed (already evident from `runs/curie_beta02_e1000`); strong-β variants should be the focus |
+| Tier-2 alignment $\mathrm{align}(G,A)$ peaks above criticality and drops near $\beta_c$, while $\mathrm{align}(G,C),\ \mathrm{align}(G,C_\tau)$ peak at criticality | direct evidence for H2 — the phase-dependent geometry hypothesis |
+| Tier-3 effects of Tier-2 strengthen with $n$ | finite-size scaling consistent with collective-mode dominance at large $n$ |
+| Tier-4 lower $r_{\rm eff}(G)$ at fixed $\beta$ as $n$ grows | strongest single signature of emergent coarse-graining; this is the paper figure |
+| denoise / partial tasks raise $\mathrm{align}(G,C)$ vs `next_state` | corroborates the coarse-graining interpretation |
 
-### 5.3 After-the-sweep work
+### 5.7 After-the-sweeps work
 
-1. `python3 scripts/plot_spin_results.py runs/*_e1000` — generates per-run figures.
-2. Build a cross-run comparison plot: $\Delta_{\rm baseline}$, `eff_rank_G`, and the
-   three alignment scores as a function of $\beta$ for the Curie and block ladders.
-   (Not yet implemented — add to `scripts/plot_spin_results.py` or a new
-   `scripts/plot_alignment_phase.py`.)
-3. Commit the new runs and the updated plots (`git add -f runs/...`), then push.
+1. `python3 scripts/plot_spin_results.py runs_h100/tier*` — per-run figures.
+2. New script `scripts/plot_phase_diagram.py` (not yet written): take a directory
+   of runs whose names match `*_beta{β}_seed{s}` and emit per-graph-family curves
+   of $\{\Delta_{\rm baseline},\ r_{\rm eff}(G),\ \mathrm{align}_*\}$ vs $\beta$,
+   with seed-mean ± std bands. Re-use it for Tier 4 by grouping on $n$.
+3. Commit the surviving runs (`git add -f runs_h100/...`), then push.
+   `final.pt` files are ~100 KB at $n=64$; at $n=1024$ they balloon to ~tens of
+   MB. Consider `final_light.pt` (state dict + small metadata only) for $n≥256$
+   if you want to keep many runs in git — see §6.7.
 
 ---
 
-## 6. Code-level notes & gotchas
+## 6. Optimizations to land before big sweeps
+
+The current code is correct but un-tuned. ChatGPT identified three classes of
+bottleneck that bite at $n\ge 256$: dense Glauber updates, Python time loops,
+and full-matrix SVDs in diagnostics. Land these patches in roughly the order
+listed; (6.1) and (6.2) alone get you to $n=1024$ comfortably.
+
+The single most important change is **(6.1)**: stop forming the dense `s @ A.T`
+update for lattice / Curie / block. That alone changes Ising sampling from
+$O(B n^2)$ to $O(B n)$ for the structured-graph cases.
+
+### 6.1 Local-field updates in `lowrank_rnn/data/ising.py`
+
+For each structured graph, replace `field = s @ A.T` with a kernel that exploits
+the structure. Keep `A` as the source of truth (it's still used by analysis), but
+add a `graph_kind`-aware `_local_field` helper and call it from
+`synchronous_glauber_step` when the kind is known.
+
+```python
+def _lattice_field_2d(s: torch.Tensor, L: int, coupling: float) -> torch.Tensor:
+    # s: (B, n), n = L * L; returns (B, n)
+    x = s.view(s.shape[0], L, L)
+    f = (torch.roll(x, 1, dims=1) + torch.roll(x, -1, dims=1)
+         + torch.roll(x, 1, dims=2) + torch.roll(x, -1, dims=2))
+    return coupling * f.reshape_as(s)
+
+def _curie_field(s: torch.Tensor, coupling: float) -> torch.Tensor:
+    n = s.shape[-1]
+    total = s.sum(dim=-1, keepdim=True)
+    return (coupling / n) * (total - s)
+
+def _block_field(s, labels, j_in, j_out, n_blocks):
+    B, n = s.shape
+    sums = torch.zeros(B, n_blocks, device=s.device, dtype=s.dtype)
+    sums.scatter_add_(1, labels[None].expand(B, -1), s)
+    own = sums.gather(1, labels[None].expand(B, -1))  # (B, n)
+    total = s.sum(dim=-1, keepdim=True)
+    return (j_in / n) * (own - s) + (j_out / n) * (total - own)
+```
+
+Plumb the choice through `sample_ising_batch` via the `meta` dict (which already
+carries `graph_kind`, `lattice_shape`, `block_labels`). Keep the dense path for
+`sk` and as a fallback.
+
+### 6.2 Vectorize input / readout in `VanillaRNN.forward`
+
+Three changes:
+
+- Compute `inp = self.input(x)` once over the whole sequence: `(B, T, input)` →
+  `(B, T, H)`.
+- Pre-allocate `hs = torch.empty(B, T, H, ...)` instead of appending to a list +
+  `torch.cat`.
+- Apply `self.readout` once at the end to the full hidden trajectory:
+  `y_seq = self.readout(hs)`.
+
+The recurrent dependency still serializes the inner loop, but you cut two
+per-step matmul calls and remove all Python-list overhead. This is the second
+biggest single win.
+
+### 6.3 Mixed precision on H100
+
+Add to `train_spin_prediction` (gated on `cfg.device.startswith("cuda")`):
+
+```python
+torch.set_float32_matmul_precision("high")
+torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.allow_tf32 = True
+use_amp = cfg.device.startswith("cuda")
+...
+with torch.autocast(device_type="cuda", dtype=torch.bfloat16, enabled=use_amp):
+    y_pred, _ = model(x, return_states=False)
+    loss = loss_fn(y_pred, y_true)
+```
+
+Cast back to float32 for **all** diagnostic ops (the analysis helpers already do
+`.to(torch.float32)` before `linalg.svdvals` — keep that). Geometry trends are
+qualitative; bf16 forward + fp32 SVD is safe.
+
+### 6.4 Optional `--compile` flag
+
+Once (6.1)–(6.3) are in and behavior is stable, add a `--compile` flag that wraps
+the model with `torch.compile(model, mode="reduce-overhead")`. Off by default —
+debugging compiled PyTorch is painful and not worth it during development.
+
+### 6.5 Smoke-test order
+
+Before launching Tier 1, run these in sequence on a single GPU. If the second
+one is unhappy, land §6.1 and try again.
+
+```bash
+# 1) n=64 — should be < 20 s
+python scripts/run_spin_experiment.py \
+    --graph-kind lattice_2d --beta 0.44 \
+    --n-spins 64 --hidden-dim 64 \
+    --epochs 100 --seq-len 200 --batch-size 256 \
+    --eval-every 25 --device cuda \
+    --save-dir runs_h100/_smoke_lattice64
+
+# 2) n=256 — should be < 1 min after §6.1+§6.2
+python scripts/run_spin_experiment.py \
+    --graph-kind lattice_2d --beta 0.44 \
+    --n-spins 256 --hidden-dim 256 \
+    --epochs 100 --seq-len 200 --batch-size 128 \
+    --eval-every 25 --device cuda \
+    --save-dir runs_h100/_smoke_lattice256
+
+# 3) n=1024 — should be < 5 min after §6.1+§6.2+§6.3
+python scripts/run_spin_experiment.py \
+    --graph-kind lattice_2d --beta 0.44 \
+    --n-spins 1024 --hidden-dim 1024 \
+    --epochs 100 --seq-len 100 --batch-size 64 \
+    --eval-every 25 --align-k 10 --device cuda \
+    --save-dir runs_h100/_smoke_lattice1024
+```
+
+If $n=1024$ is still slow, the bottleneck is likely the diagnostic SVDs — land
+§6.6 next.
+
+### 6.6 Fast-diagnostic mode for $n\ge 1024$
+
+`effective_rank`, `energy_rank`, and `subspace_alignment` all currently call
+`torch.linalg.svd` / `svdvals` on full $n\times n$ matrices. At $n=1024$ that's
+~$O(n^3)\approx 10^9$ flops per eval per metric — non-trivial but ok. At
+$n=4096$ it dominates training. Add `cfg.diag_mode` with two settings:
+
+- `"fast"` (default for $n\ge 512$): use `torch.svd_lowrank(M.float(), q=k+10, niter=2)`
+  for top-$k$ subspaces; estimate `effective_rank` from the top $q$ singular values
+  only (truncated participation ratio with a clear note in the JSON that this is
+  approximate). Skip random-control alignment except at epoch 1 and the final
+  epoch.
+- `"full"` (default for $n<512$): current behavior.
+
+Also cache `top_left_singular(A, k)` once at the start of training — $A$ is
+fixed per run, no need to re-SVD it every eval. Same goes for the random-control
+matrix.
+
+### 6.7 Multi-seed concurrent launcher
+
+For $n\le 256$ a single job under-utilizes an H100. Run 4 seeds in parallel:
+
+```bash
+for seed in 0 1 2 3; do
+  python scripts/run_spin_experiment.py ... --seed $seed \
+    --save-dir runs_h100/.../seed${seed} &
+done
+wait
+```
+
+Pin via `CUDA_VISIBLE_DEVICES=0` if running across multiple GPUs. For $n=1024$
+keep concurrency at 1–2 unless you've measured headroom.
+
+### 6.8 Lighter checkpointing for big runs
+
+`runs_h100/tier4_fss_lattice1024_beta*_seed*/final.pt` will be in the tens of
+MB each, and there are 63 of them in Tier 4. Two options:
+
+- Write a `final_light.pt` containing `{state_dict, cfg, history, losses, A, J0}`
+  but NOT the full optimizer state, and use that for git.
+- Or just `git add -f` only the JSON + plots, and keep `final.pt` local /
+  optional. The JSON history is enough to redraw every figure.
+
+### 6.9 Optional later: low-rank parameterization of $J$ for $n\ge 4096$
+
+Replace `self.recurrent` with `J = U V.T` where `U,V \in R^{H \times r}`. This
+changes the recurrent cost from $O(H^2)$ to $O(H r)$. **Don't** make this the
+default — the project's scientific point is **emergent** low rank, and imposing
+it would defeat that. But for purely-engineering scaling tests, it's the right
+move.
+
+### 6.10 What not to optimize yet
+
+- Don't switch to `torch.nn.RNN` / `RNNCell` — you lose the fully-trainable,
+  inspectable $J$ that the analysis depends on.
+- Don't add Hydra / W&B / live dashboards. `docs/experiment_spin_rnn.md`
+  explicitly forbids them at this stage. Argparse + JSON + matplotlib only.
+- Don't unify the OU-tracking and spin code paths. They share nothing
+  scientifically; cross-contamination would create surprise.
+
+---
+
+## 7. Code-level notes & gotchas
 
 - **MSE on $\pm 1$ targets.** Zero predictor has MSE ≈ 1. Always read $\Delta_{\rm baseline}$
   before trusting alignment numbers — alignment can drift even when prediction loss
@@ -200,7 +520,7 @@ For each (`curie_*`, `block_*`) regime, after the run finishes, answer:
 
 ---
 
-## 7. Reproducing the existing local results on runpod
+## 8. Reproducing the existing local results on runpod
 
 If you want a sanity check that the GPU box reproduces what's in the repo:
 
@@ -218,18 +538,21 @@ Numbers won't be bit-identical across devices, but `eff_rank_G` should collapse 
 
 ---
 
-## 8. Git / push hygiene
+## 9. Git / push hygiene
 
 - Commits so far on `main` (origin = `https://github.com/aniket-desh/low-rank-rnn`):
   - `029fead` — docs: switch LaTeX delimiters to `$` and `$$`
   - `913ba27` — spin-RNN experiment: modules + first 300-epoch matrix + plots
-  - (this commit) — baseline-loss metric, sweep script, `curie_beta02_e1000`, HANDOFF.md
-- The owner expects commits + pushes when code lands. Use `git add -f runs/<name>` to
-  override the `runs/*` ignore rule for completed runs you want preserved.
+  - `4e3b045` — baseline-loss metric, sweep script, `curie_beta02_e1000`, HANDOFF.md v1
+  - (this commit) — HANDOFF.md v2: H100 three-tier plan + optimization queue
+- New H100 runs should live under `runs_h100/` so they don't collide with the
+  CPU `runs/` controls.
+- The owner expects commits + pushes when code lands. Use `git add -f` to override
+  the `runs/*` ignore rule, and consider stripping `final.pt` for $n\ge 256$ (see §6.8).
 
 ---
 
-## 9. Quick context the owner repeats
+## 10. Quick context the owner repeats
 
 - The owner is Aniket (`aniketdeshh@gmail.com`). This is a research project he wants
   to extend rigorously; treat results as something he'll defend in a meeting.

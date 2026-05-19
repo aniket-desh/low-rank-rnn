@@ -24,9 +24,11 @@ vector, `.pdf` for paper-style use). Animations are MP4 + GIF preview.
 
 | File | What it shows | Best use |
 |---|---|---|
-| `animations/G_heatmap_beta0p200.mp4` | G = R J B evolving during training at β=0.2 (high T). | Sub-fig in temperature triptych. |
-| `animations/G_heatmap_beta0p440.mp4` | Same at β=0.44 (critical). | Sub-fig in temperature triptych. |
-| `animations/G_heatmap_beta0p800.mp4` | Same at β=0.8 (low T). | Sub-fig in temperature triptych. |
+| `animations/G_heatmap_beta0p200_next_state.mp4` | G = R J B evolving during training at β=0.2 (high T). | Sub-fig in temperature triptych. |
+| `animations/G_heatmap_beta0p440_next_state.mp4` | Same at β=0.44 (critical). | Sub-fig in temperature triptych. |
+| `animations/G_heatmap_beta0p800_next_state.mp4` | Same at β=0.8 (low T). | Sub-fig in temperature triptych. |
+| `animations/G_heatmap_beta0p440_denoise.mp4` | Same at β=0.44 for the denoise task. | Task-contrast story (Tier 5). |
+| `animations/G_heatmap_beta0p440_partial.mp4` | Same at β=0.44 for the partial task. | Task-contrast story (Tier 5). |
 | `animations/singular_spectrum_three_betas.mp4` | σ(G) vs index, three β panels, training time. | **Best single explanatory animation.** |
 | `animations/top_modes_beta0p440.mp4` | Top-4 left singular vectors of G near criticality, training time. | Visualize "what the network looks at". |
 | `animations/training_dashboard_three_betas.mp4` | r_eff, Δ, align, spectrum dashboard, three β. | Full training-dynamics view. |

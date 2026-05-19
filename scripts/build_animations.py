@@ -126,7 +126,11 @@ def anim_G_heatmap(run_dir: Path, out_dir: Path):
         print(f"[skip] no checkpoints in {run_dir.name}")
         return
     m = ANIM_RE.search(run_dir.name)
-    btag = m["beta"] if m else "unknown"
+    if m:
+        # Always include the task to avoid overwriting siblings at same β.
+        btag = f"{m['beta']}_{m['task']}"
+    else:
+        btag = "unknown"
 
     # Pre-compute global color range
     Gs = []

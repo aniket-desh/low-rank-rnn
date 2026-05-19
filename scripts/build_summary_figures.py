@@ -112,15 +112,18 @@ def build_tier1():
             "align_G_C": last["align_G_C"],
             "align_G_lag": last["align_G_lag"],
             "align_random_A": last["align_random_A"],
+            "align_random_C": last["align_random_C"],
+            "align_random_lag": last["align_random_lag"],
         })
     if not rows:
         print("[skip] no tier1 runs"); return
 
-    fig, axes = plt.subplots(1, 3, figsize=(14, 4.0))
+    fig, axes = plt.subplots(1, 4, figsize=(16, 4.0))
     metric_titles = [
-        ("delta_baseline", r"$\Delta_{\rm baseline}$"),
-        ("eff_rank_G",     r"$r_{\rm eff}(G_{\rm spin})$"),
-        ("align_G_C",      r"$\mathrm{align}(G,C)$"),
+        ("delta_baseline", r"$\Delta_{\rm baseline}$", None),
+        ("eff_rank_G",     r"$r_{\rm eff}(G_{\rm spin})$", None),
+        ("align_G_A",      r"$\mathrm{align}(G,A)$", "align_random_A"),
+        ("align_G_C",      r"$\mathrm{align}(G,C)$", "align_random_C"),
     ]
     by_kind = defaultdict(list)
     for r in rows:
@@ -128,14 +131,20 @@ def build_tier1():
 
     x_labels = sorted(by_kind.keys(), key=lambda k: (k[0], k[1]))
     xs = np.arange(len(x_labels))
-    for ax, (key, title) in zip(axes, metric_titles):
+    for ax, (key, title, rand_key) in zip(axes, metric_titles):
         vals = [[r[key] for r in by_kind[k]] for k in x_labels]
         means = [np.mean(v) for v in vals]
         stds  = [np.std(v) for v in vals]
-        ax.bar(xs, means, yerr=stds, capsize=4, color="tab:blue", alpha=0.7)
+        ax.bar(xs, means, yerr=stds, capsize=4, color="tab:blue", alpha=0.7,
+               label="trained")
+        if rand_key is not None:
+            rand = [np.mean([r[rand_key] for r in by_kind[k]]) for k in x_labels]
+            ax.bar(xs, rand, color="tab:gray", alpha=0.5, label="random ctrl")
+            ax.legend(fontsize=8, loc="upper left")
         ax.set_xticks(xs)
-        ax.set_xticklabels([f"{k[0]}\nβ={k[1]:g}" for k in x_labels], fontsize=8)
-        ax.set_title(title)
+        ax.set_xticklabels([f"{k[0]}\nβ={k[1]:g}" for k in x_labels],
+                            fontsize=7, rotation=15)
+        ax.set_title(title, fontsize=10)
         ax.grid(True, alpha=0.3)
     _save(fig, "tier1_seed_bars.png")
 

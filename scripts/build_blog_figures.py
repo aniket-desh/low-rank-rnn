@@ -294,7 +294,7 @@ def fig_main_triptych(rows4: List[Dict]):
     axes[0].set_yscale("log")
     axes[2].set_yscale("log")
     axes[0].legend(title="size", title_fontsize=8.5, loc="upper right")
-    fig.suptitle("Tier 4 finite-size scaling near the lattice critical point",
+    fig.suptitle("finite-size scaling near the lattice critical point",
                   y=1.02, fontsize=12)
     _save(fig, "main_result_triptych")
 
@@ -337,7 +337,7 @@ def fig_effective_rank_heatmap(rows4: List[Dict], rows6: List[Dict]):
         ax.axvline(BETA_C_LATTICE, ls="--", color="white", lw=1.0, alpha=0.7)
         cb = fig.colorbar(im, ax=ax, fraction=0.04, pad=0.02)
         cb.set_label(cbar_label)
-        ax.set_title(f"effective rank phase map ({tag})")
+        ax.set_title("effective rank phase map")
         _save(fig, stem)
 
 
@@ -617,7 +617,7 @@ def fig_task_induced(rows5: List[Dict]):
     ax.set_yscale("log"); ax.set_title("rank vs performance")
     ax.legend()
 
-    fig.suptitle("Tier 5 — task-induced coarse graining at $n=64$ lattice", y=1.02,
+    fig.suptitle("task-induced coarse graining at $n=64$ lattice", y=1.02,
                   fontsize=12)
     _save(fig, "task_induced_coarse_graining")
 
@@ -658,7 +658,7 @@ def fig_graph_family(rows2: List[Dict]):
                 ax.axvline(BETA_C_LATTICE, ls="--", color="#888", lw=0.7)
             elif kind == "curie_weiss":
                 ax.axvline(BETA_C_CURIE, ls="--", color="#888", lw=0.7)
-    fig.suptitle("Tier 2 — phase diagrams across graph families", y=1.01, fontsize=12)
+    fig.suptitle("phase diagrams across graph families", y=1.01, fontsize=12)
     _save(fig, "graph_family_comparison")
 
 
@@ -689,7 +689,7 @@ def fig_relative_alignment(rows4: List[Dict], rows6: List[Dict]):
     ax.axvline(BETA_C_LATTICE, ls="--", color="#888", lw=0.8)
     ax.set_xlabel(r"$\beta$"); ax.set_ylabel(r"$\mathrm{align}(G,A)\,/\,\mathrm{align}_{\rm rand}$")
     ax.set_yscale("log")
-    ax.set_title(f"phase diagram of *relative* alignment ({tag})")
+    ax.set_title("phase diagram of relative alignment")
     ax.legend(title="size", title_fontsize=8.5)
     _save(fig, "relative_alignment_phase_diagram")
 

@@ -76,12 +76,12 @@ current one. Nothing surprising there.
 
 The geometry of $G$ tells a different story.
 
-![Tier 4 main result triptych](figures/blog/main_result_triptych.png)
+![main result triptych](figures/blog/main_result_triptych.png)
 
-*Tier 4 (n=64, 256, 1024; 21 βs × 3 seeds). Left: effective rank of $G$.
-Centre: prediction improvement. Right: alignment of $G$'s top-10 left
-singular subspace with $A$'s, normalized by a random-baseline.
-Vertical line: lattice critical inverse temperature
+*$n \in \{64, 256, 1024\}$, 21 βs around the critical region × 3 seeds.
+Left: effective rank of $G$. Centre: prediction improvement. Right:
+alignment of $G$'s top-10 left singular subspace with $A$'s, normalized by
+a random baseline. Vertical line: lattice critical inverse temperature
 $\beta_c = \tfrac{1}{2}\ln(1+\sqrt 2) \approx 0.4407$.*
 
 The clean separation is
@@ -118,9 +118,8 @@ normalized by system size, as a function of $\beta$ and $n$.
 
 ![Effective rank phase map](figures/blog/effective_rank_heatmap.png)
 
-*Phase map of $r_{\rm eff}(G)/n$ from the Tier 6 dense critical zoom (21
-βs from 0.400 to 0.500). The vertical dashed line marks
-$\beta_c$.*
+*Phase map of $r_{\rm eff}(G)/n$ from a dense critical zoom (21 βs evenly
+spaced from 0.400 to 0.500). The vertical dashed line marks $\beta_c$.*
 
 At high temperature, the operator is broad: the network needs many
 microscopic directions because the dynamics are local and noisy. As $\beta$
@@ -219,13 +218,13 @@ coupling $J_{\rm in}/n$ and weak between-block coupling $J_{\rm out}/n$.
 
 ![Graph family comparison](figures/blog/graph_family_comparison.png)
 
-*Lattice, Curie–Weiss, and block phase diagrams at $n=64$. Lattice shows
-the crossover discussed above. Curie–Weiss is essentially rank-one until
-$\beta$ exceeds the mean-field transition at $\beta \approx 1$; then
-$r_{\rm eff}(G)$ **grows**, because the network starts using additional
-recurrent directions to track fluctuations around the magnetization.
-Block stays close to $r_{\rm eff}(G)\approx 2$ — the two-community
-structure — at every temperature.*
+*Phase diagrams across the three graph families at $n=64$. The lattice
+shows the crossover discussed above. Curie–Weiss is essentially rank-one
+until $\beta$ exceeds the mean-field transition at $\beta \approx 1$;
+then $r_{\rm eff}(G)$ **grows**, because the network starts using
+additional recurrent directions to track fluctuations around the
+magnetization. The block model stays close to $r_{\rm eff}(G)\approx 2$ —
+the two-community structure — at every temperature.*
 
 The three graph families behave qualitatively differently. The simple "RNNs
 learn low rank" reading does not survive this figure. A better one is:
@@ -252,10 +251,10 @@ At the same critical temperature, I trained three versions:
 
 ![Task-induced coarse graining](figures/blog/task_induced_coarse_graining.png)
 
-*Tier 5. Same lattice ($n=64$), same temperature ($\beta=0.44$), three
-tasks. Right panel: rank-vs-performance scatter. Denoise and partial
-sit at the same $\Delta_{\rm baseline}$ as `next_state` but at half the
-effective rank.*
+*Same lattice ($n=64$), same temperature ($\beta=0.44$), three tasks.
+Right panel: rank-vs-performance scatter. Denoise and partial sit at the
+same $\Delta_{\rm baseline}$ as `next_state` but at half the effective
+rank.*
 
 At $\beta = 0.44$, all three tasks have nearly identical prediction
 performance:
@@ -319,12 +318,14 @@ The right question is:
 
 In this experiment, the answer is that $G=RJB$ tracks:
 
-- **temperature** (Tiers 1, 2: phase-dependent rank, alignment, dynamics)
-- **finite-size scale** (Tier 3: $r_{\rm eff}$ scales sublinearly with $n$)
-- **the critical window** (Tier 4, Tier 6: $\alpha(\beta)$ peaks slightly
-  above $\beta_c$ with a smooth crossover)
-- **graph symmetry** (Tier 2: lattice / Curie / block all look different)
-- **task** (Tier 5: same physics, denoise/partial halve the rank)
+- **temperature** — phase-dependent rank, alignment, and training dynamics
+- **finite-size scale** — $r_{\rm eff}$ scales sublinearly with $n$
+- **the critical window** — $\alpha(\beta)$ peaks slightly above $\beta_c$
+  with a smooth crossover, not a delta-function collapse
+- **graph symmetry** — lattice, Curie–Weiss, and block produce
+  qualitatively different rank trends
+- **task** — at the same physics, denoise and partial observation halve
+  the effective rank
 
 So the result is not
 
@@ -408,10 +409,9 @@ A few figures I built but kept out of the main narrative:
 - Top-4 mode animation at criticality:
   [`top_modes_beta0p440.gif`](figures/blog/animations/top_modes_beta0p440.gif).
 
-Total: 388 production training runs on a single H100, organized as six
-tiers; the code, full numerical tables, and per-run JSON histories are on
-GitHub. Figures are reproducible via
-`python scripts/build_blog_figures.py --all` and
+Total: 388 production training runs on a single H100; the code, full
+numerical tables, and per-run JSON histories are on GitHub. Figures are
+reproducible via `python scripts/build_blog_figures.py --all` and
 `python scripts/build_animations.py`.
 
 ---

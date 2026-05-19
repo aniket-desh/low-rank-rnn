@@ -359,7 +359,14 @@ def anim_dashboard(beta_runs: List[Path], out_dir: Path):
     ax_s.set_xlabel("singular index"); ax_s.set_ylabel(r"$\sigma_i(G)$")
     ax_s.set_yscale("log"); ax_s.set_title("singular spectrum (current epoch)")
     s_max = max(float(np.max(s)) for ser in spectra_series for s in ser)
-    ax_s.set_ylim(1e-3, s_max * 1.2)
+    s_min = max(1e-4, min(
+        float(np.min(s[s > 0])) for ser in spectra_series for s in ser
+        if np.any(s > 0)
+    ))
+    spec_len = max(len(s) for ser in spectra_series for s in ser)
+    ax_s.set_xlim(0.5, spec_len + 0.5)
+    ax_s.set_ylim(s_min * 0.5, s_max * 1.5)
+    ax_s.legend(fontsize=8, loc="upper right")
 
     # Find x-limits
     max_epoch = max((max(s["epochs"]) for s in series), default=1000)

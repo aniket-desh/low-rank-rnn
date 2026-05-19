@@ -4,7 +4,7 @@ Live document — updated as each tier completes on the runpod H100. The science
 laid out in `docs/theory_spin_rnn.md` (theory) and `HANDOFF.md` (queue). This
 file is the running readout.
 
-Last update: 2026-05-19, status: **Tiers 1–5 complete (199 runs); Tier 6 critical zoom + animation sources running in background**.
+Last update: 2026-05-19, status: **All 6 tiers complete (388 runs total); 16 animations rendered; blog figure suite in `figures/blog/`**.
 
 ---
 
@@ -514,17 +514,30 @@ bash scripts/run_animation_sources.sh   # 5 checkpointed n=64 runs
 python scripts/build_animations.py       # render MP4 + GIF
 ```
 
-### Tier 6 — critical zoom
+### Tier 6 — critical zoom (189 runs, complete)
 
 A dense β-grid around the lattice critical point:
 
 $n \in \{64, 256, 1024\} \times \beta \in \{0.400, 0.405, \ldots, 0.500\} \times \text{3 seeds}$
 
-→ 189 runs total. Runs in the background as `logs/tier6.log`. When complete,
-`scripts/build_blog_figures.py --tier tier6` regenerates the FSS heatmaps and
-scaling-exponent plot with the finer grid. Status (auto-updated by the hook
-in `scripts/run_tier6_critical_zoom.sh`): see
-`figures/blog/tier6_zoom_stats.md`.
+Wall time on H100: ~2.5 hours. The dense grid sharpens the FSS picture from
+Tier 4 — full tables in `figures/blog/tier6_zoom_stats.md`. Two new clean
+observations:
+
+1. **At n=256 there is a sharp transition in $\mathrm{align}(G,A)$ at
+   β ≈ 0.465**, jumping from 0.61 (β=0.46) to 0.95 (β=0.47). This is invisible
+   on the coarser Tier 4 β grid. The 3-seed spread is ≤ 0.04 at the
+   transition β-values and < 0.01 elsewhere — the jump is real, not a
+   fluctuation.
+2. **$r_{\rm eff}(G)$ at n=64 decreases smoothly and monotonically** with β
+   through criticality (9.9 → 1.8 as β goes from 0.400 to 0.500), with no
+   sharp kink at $\beta_c$. The collapse is gradual at this size.
+
+Both observations were impossible to see with the Tier 4 β = {0.36, 0.40,
+0.42, 0.44, 0.46, 0.48, 0.52} grid because the relevant window is β ∈
+[0.46, 0.49]. The FSS heatmap (`figures/blog/effective_rank_heatmap.png`)
+and α(β) plot (`figures/blog/scaling_exponent_alpha.png`) have been
+regenerated using the Tier 6 grid.
 
 See [`figures/blog/README.md`](figures/blog/README.md) for the per-figure
 explanation table.

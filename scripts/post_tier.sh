@@ -29,15 +29,17 @@ echo ">> [$tier] stats table"
 python3 scripts/tier_stats.py "$tier" | tee "figures/summary/${tier}_stats.md"
 
 echo ">> [$tier] git add"
-# Stage history/config/losses/plots from every tier dir; ignore .pt via gitignore
-git add -f runs_h100/${tier}_*/history.json \
-            runs_h100/${tier}_*/config.json \
-            runs_h100/${tier}_*/losses.json \
-            runs_h100/${tier}_*/plots 2>/dev/null || true
-git add -f figures/summary/${tier}_*.png \
-            figures/summary/${tier}_stats.md 2>/dev/null || true
-# Small final.pt at n=64 only (per .gitignore rules)
-git add -f runs_h100/${tier}_*_seed*/final.pt 2>/dev/null || true
+# runs_h100/* is NOT gitignored (only runs/* is). The big final.pt files
+# are excluded explicitly in .gitignore for n>=256 tier3/tier4 dirs.
+# Use plain `git add` so those rules are respected.
+git add runs_h100/${tier}_*/history.json \
+        runs_h100/${tier}_*/config.json \
+        runs_h100/${tier}_*/losses.json \
+        runs_h100/${tier}_*/plots 2>/dev/null || true
+# Include n=64 final.pt where it isn't gitignored. The .gitignore filters
+# the n=256 / n=1024 ones automatically.
+git add runs_h100/${tier}_*/final.pt 2>/dev/null || true
+git add figures/summary/${tier}_*.png figures/summary/${tier}_stats.md 2>/dev/null || true
 git add summary.md 2>/dev/null || true
 
 if git diff --staged --quiet; then

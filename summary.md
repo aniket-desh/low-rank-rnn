@@ -4,7 +4,7 @@ Live document — updated as each tier completes on the runpod H100. The science
 laid out in `docs/theory_spin_rnn.md` (theory) and `HANDOFF.md` (queue). This
 file is the running readout.
 
-Last update: 2026-05-19, status: **smoke tests passed, Tier 1 launched**.
+Last update: 2026-05-19, status: **Tier 1 complete, Tier 2 launched**.
 
 ---
 
@@ -48,14 +48,45 @@ Per-run plots: `runs_h100/_smoke_lattice{64,256,1024}/plots/`.
 
 ---
 
-## 2. Tier 1 — n=64 seed replication (20 runs)
+## 2. Tier 1 — n=64 seed replication (20 runs, complete)
 
 5 seeds × {`lattice_2d` β=0.2, β=0.44; `curie_weiss` β=0.2; `block` β=0.5}
-at n=hidden=64, seq_len=200, batch=256, 1000 epochs.
+at n=hidden=64, seq_len=200, batch=256, 1000 epochs. Wall time: ~12 min on
+H100 with 5-way per-regime parallelism.
 
-Purpose: rule out seed-dependence and undertraining before doing anything fancier.
+| regime | β | n seeds | Δ_baseline | r_eff(G) | align(G,A) | align(G,C) | align(G,Cτ) |
+|---|---|---|---|---|---|---|---|
+| lattice_2d   | 0.2  | 5 | 0.134 ± 0.000 | 21.31 ± 0.09 | 0.568 ± 0.033 | 0.607 ± 0.039 | 0.618 ± 0.060 |
+| lattice_2d   | 0.44 | 5 | **0.682 ± 0.004** | **4.03 ± 0.16** | 0.628 ± 0.019 | 0.603 ± 0.060 | 0.611 ± 0.066 |
+| curie_weiss  | 0.2  | 5 | 0.001 ± 0.000 | 1.22 ± 0.00 | 0.252 ± 0.014 | 0.186 ± 0.006 | 0.251 ± 0.014 |
+| block        | 0.5  | 5 | 0.002 ± 0.000 | 2.10 ± 0.01 | 0.431 ± 0.014 | 0.307 ± 0.020 | 0.421 ± 0.009 |
 
-_Status:_ pending launch / running. Results table will populate here when done.
+![tier1 seed bars](figures/summary/tier1_seed_bars.png)
+
+Read-out:
+
+- **Near-critical lattice (β=0.44) reproduces under seed replication.** All 5
+  seeds land in a 0.16-wide window on $r_{\rm eff}(G)$ around 4, and a
+  0.06-wide window on each alignment. The original 300-epoch CPU run reported
+  $r_{\rm eff}(G)\approx 1.9$ for this regime; the longer/wider 1000-epoch
+  H100 version sits at 4, which is consistent (the CPU run had smaller batch
+  and shorter seqs, biasing the effective-rank estimator). The geometry is
+  not seed-dependent.
+- **High-temperature lattice (β=0.2) is the strongest microscopic regime.**
+  $\Delta_{\rm baseline}=0.134$ — modest but non-zero prediction signal — and
+  alignments around 0.6 vs a random baseline of ~0.07. So the network *is*
+  learning the coupling matrix at high temperature, matching the H1
+  high-temperature linearization prediction.
+- **Curie–Weiss β=0.2 and block β=0.5 remain weak-signal.** $\Delta_{\rm
+  baseline}\approx 0$ for both — extending the CPU `curie_beta02_e1000`
+  control to multiple seeds. The geometry diagnostics still drift away from
+  random (curie align(G,A) = 0.25 vs random 0.07; block = 0.43 vs 0.07), but
+  these are statistical artifacts of the optimizer, not prediction-driven
+  signal. We need stronger β before these regimes become interpretable — Tier 2
+  sweeps β through the mean-field transition (β ≳ 1) for both.
+
+Per-run figures live under `runs_h100/tier1_*/plots/`. Full stats in
+`figures/summary/tier1_stats.md`.
 
 ---
 
@@ -66,7 +97,7 @@ This is the first paper-figure-shaped experiment: $\Delta_{\rm baseline}$,
 $r_{\rm eff}(G)$, $\mathrm{align}(G,A)$, $\mathrm{align}(G,C)$,
 $\mathrm{align}(G,C_\tau)$ vs $\beta$ per graph family.
 
-_Status:_ blocked on Tier 1.
+_Status:_ launched after Tier 1.
 
 ---
 

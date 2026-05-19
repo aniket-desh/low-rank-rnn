@@ -15,9 +15,9 @@ The existing code already has useful pieces:
 
 But the current experiment is not enough for the new question. The original model constructs
 
-\[
+$$
 J = gW - \frac{b}{N}\mathbf 1\mathbf 1^\top + m u v^\top
-\]
+$$
 
 by design. In the default config, `train_u=False`, `train_v=False`, and `train_readout=True`, so recurrent structure is mostly imposed rather than learned. For the new experiment, the recurrent matrix must be trainable, and the data should come from an Ising/Glauber process.
 
@@ -25,9 +25,9 @@ by design. In the default config, `train_u=False`, `train_v=False`, and `train_r
 
 Train an RNN on spin trajectories and measure whether the learned recurrent geometry aligns with:
 
-1. the microscopic Ising coupling matrix \(A\),
-2. the empirical covariance \(C_\beta\),
-3. time-lagged slow modes \(K_\tau\),
+1. the microscopic Ising coupling matrix $A$,
+2. the empirical covariance $C_\beta$,
+3. time-lagged slow modes $K_\tau$,
 4. block/community structure when present,
 5. low-rank structure as measured by singular spectra and effective rank.
 
@@ -284,9 +284,9 @@ class VanillaRNN(nn.Module):
 
 Spins are in `{-1,+1}`. A minimal first version can use MSE between predicted real-valued spins and target spins:
 
-\[
+$$
 \mathcal L = \frac{1}{BTN}\sum_{b,t,i}(\hat s_{bti}-s_{bti})^2.
-\]
+$$
 
 This is simple and lets the output be interpreted as conditional mean. Later, switch to Bernoulli cross-entropy with logits if needed.
 
@@ -355,15 +355,15 @@ This only works when matrices have compatible row dimension. For comparing RNN h
 
 The RNN recurrent matrix `J` lives in hidden space:
 
-\[
+$$
 J\in\mathbb R^{H\times H}.
-\]
+$$
 
 The Ising coupling and covariance live in spin space:
 
-\[
+$$
 A,C\in\mathbb R^{n\times n}.
-\]
+$$
 
 So do not directly compare `J` to `A` unless `hidden_dim == n_spins` and the hidden state has the same coordinate system as the spins.
 
@@ -377,15 +377,15 @@ For the first experiment, set hidden dimension equal to spin dimension. This mak
 
 For general hidden size, estimate the local effective spin-to-spin Jacobian:
 
-\[
+$$
 G_t = \frac{\partial y_t}{\partial x_t}.
-\]
+$$
 
 This is expensive if done exactly. A cheap approximation for one-step tasks is the matrix product
 
-\[
+$$
 G \approx R\,J\,B,
-\]
+$$
 
 where `B = model.input.weight`, `J = model.recurrent.weight`, and `R = model.readout.weight`. For a nonlinear RNN, include an average activation derivative later. In code:
 
@@ -397,7 +397,7 @@ def effective_spin_operator(model):
     return R @ J @ B             # n x n
 ```
 
-This gives an operator in spin space and can be compared to \(A\), \(C\), and lagged covariance.
+This gives an operator in spin space and can be compared to $A$, $C$, and lagged covariance.
 
 For the minimal experiment, compute both when possible:
 
@@ -612,9 +612,9 @@ Use `n_spins=64` because an `8 x 8` lattice is small but nontrivial.
 
 For the 2D square-lattice Ising model, the infinite-volume critical inverse temperature is
 
-\[
+$$
 \beta_c = \frac{1}{2}\log(1+\sqrt 2) \approx 0.4406868
-\]
+$$
 
 when coupling is set to 1 and there is no external field. Finite-size effects will blur this, but `beta=0.44` is a useful near-critical test.
 

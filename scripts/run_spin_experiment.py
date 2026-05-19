@@ -49,6 +49,17 @@ def main() -> None:
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--device", type=str, default="cpu")
     p.add_argument("--save-dir", type=str, default="runs/spin_rnn_debug")
+    p.add_argument(
+        "--task",
+        type=str,
+        default="next_state",
+        choices=["next_state", "denoise", "partial"],
+        help="prediction task; see docs/theory_spin_rnn.md and HANDOFF §5.5",
+    )
+    p.add_argument("--mask-frac", type=float, default=0.3,
+                   help="denoise: fraction of input coords corrupted to iid ±1")
+    p.add_argument("--obs-frac", type=float, default=0.5,
+                   help="partial: fraction of coords observed (fixed per run)")
     args = p.parse_args()
 
     cfg = SpinTrainConfig(
@@ -74,6 +85,9 @@ def main() -> None:
         seed=args.seed,
         device=args.device,
         save_dir=args.save_dir,
+        task=args.task,
+        mask_frac=args.mask_frac,
+        obs_frac=args.obs_frac,
     )
     train_spin_prediction(cfg)
 

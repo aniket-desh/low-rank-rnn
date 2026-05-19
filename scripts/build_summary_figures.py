@@ -252,6 +252,53 @@ def build_tier4():
 
 
 # -----------------------------------------------------------------------------
+# tier5: task comparison (next_state / denoise / partial × β-sweep)
+# -----------------------------------------------------------------------------
+TIER5_NAME_RE = re.compile(
+    r"tier5_(?P<task>next_state|denoise|partial)_lattice_2d_beta(?P<beta>\d+)_seed(?P<seed>\d+)"
+)
+
+
+def build_tier5():
+    by_task = defaultdict(lambda: defaultdict(list))
+    for d in sorted(RUNS.glob("tier5_*")):
+        m = TIER5_NAME_RE.search(d.name)
+        if not m:
+            continue
+        try:
+            cfg, hist = _load_run(d)
+        except FileNotFoundError:
+            continue
+        last = hist[-1]
+        by_task[m["task"]][float(cfg["beta"])].append(last)
+
+    if not by_task:
+        print("[skip] no tier5 runs"); return
+
+    metrics = [
+        ("delta_baseline", r"$\Delta_{\rm baseline}$"),
+        ("eff_rank_G",     r"$r_{\rm eff}(G)$"),
+        ("align_G_A",      r"$\mathrm{align}(G,A)$"),
+        ("align_G_C",      r"$\mathrm{align}(G,C)$"),
+        ("align_G_lag",    r"$\mathrm{align}(G,C_{\tau=1})$"),
+    ]
+    fig, axes = plt.subplots(1, len(metrics), figsize=(3.2 * len(metrics), 3.4))
+    for ax, (key, title) in zip(axes, metrics):
+        for task in sorted(by_task.keys()):
+            betas = sorted(by_task[task].keys())
+            means = [np.mean([h[key] for h in by_task[task][b]]) for b in betas]
+            stds  = [np.std([h[key] for h in by_task[task][b]]) for b in betas]
+            ax.errorbar(betas, means, yerr=stds, fmt="o-", label=task, capsize=3)
+        if key.startswith("align"):
+            ax.set_ylim(0, 1)
+        ax.set_title(title, fontsize=10)
+        ax.set_xlabel("β")
+        ax.grid(True, alpha=0.3)
+    axes[0].legend(fontsize=8)
+    _save(fig, "tier5_task_comparison.png")
+
+
+# -----------------------------------------------------------------------------
 # main
 # -----------------------------------------------------------------------------
 BUILDERS = {
@@ -260,6 +307,7 @@ BUILDERS = {
     "tier2": build_tier2,
     "tier3": build_tier3,
     "tier4": build_tier4,
+    "tier5": build_tier5,
 }
 
 

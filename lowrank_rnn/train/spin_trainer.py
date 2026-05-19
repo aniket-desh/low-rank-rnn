@@ -38,6 +38,13 @@ class SpinTrainConfig:
     device: str = "cpu"
     save_dir: str = "runs/spin_rnn_debug"
     refresh_couplings_every_epoch: bool = False
+    # task variants — see docs/theory_spin_rnn.md "Candidate tasks" and HANDOFF §5.5
+    # next_state:    x_t = s_t,                                 y_t = s_{t+1}      (default)
+    # denoise:       x_t = M_t⊙s_t + (1-M_t)⊙ξ_t (Bernoulli ξ), y_t = s_t          (clean current)
+    # partial:       x_t = P_Ω s_t (zero-fill unobserved coords), y_t = s_{t+1}
+    task: str = "next_state"
+    mask_frac: float = 0.3       # fraction CORRUPTED for denoise (1 - keep prob)
+    obs_frac: float = 0.5        # fraction OBSERVED for partial
 
 
 def _ising_config_from(cfg: SpinTrainConfig) -> IsingConfig:
@@ -55,12 +62,54 @@ def _ising_config_from(cfg: SpinTrainConfig) -> IsingConfig:
     )
 
 
+def _build_task_pair(
+    states: torch.Tensor,
+    cfg: SpinTrainConfig,
+    obs_mask: Optional[torch.Tensor] = None,
+):
+    """Map (batch, seq+1, n) trajectories to (x, y) per the cfg.task.
+
+    Returns (x, y_true) of equal seq length. `obs_mask` is the fixed (n,) bool
+    tensor of observed indices for the `partial` task; ignored otherwise.
+    """
+    s_in = states[:, :-1, :]
+    s_next = states[:, 1:, :]
+    if cfg.task == "next_state":
+        return s_in, s_next
+    if cfg.task == "denoise":
+        # Per-element keep-mask, then fill the dropped coords with iid ±1.
+        keep = (torch.rand_like(s_in) > cfg.mask_frac).to(s_in.dtype)
+        noise = (
+            2.0 * torch.randint(0, 2, s_in.shape, device=s_in.device, dtype=torch.int64) - 1
+        ).to(s_in.dtype)
+        x = keep * s_in + (1.0 - keep) * noise
+        return x, s_in  # target is the clean current state
+    if cfg.task == "partial":
+        if obs_mask is None:
+            raise ValueError("partial task requires an obs_mask")
+        # Zero-fill unobserved coords; predict full next state.
+        mask = obs_mask.to(s_in.dtype).view(1, 1, -1)
+        x = s_in * mask
+        return x, s_next
+    raise ValueError(f"unknown task {cfg.task!r}")
+
+
 def train_spin_prediction(cfg: SpinTrainConfig) -> Dict[str, Any]:
     torch.manual_seed(cfg.seed)
     device = torch.device(cfg.device)
 
     ising_cfg = _ising_config_from(cfg)
     A, meta = make_couplings(ising_cfg)
+
+    # Fixed observation mask for partial task: which coords are observed.
+    obs_mask: Optional[torch.Tensor] = None
+    if cfg.task == "partial":
+        gen = torch.Generator(device="cpu").manual_seed(cfg.seed)
+        n_obs = max(1, int(round(cfg.obs_frac * cfg.n_spins)))
+        perm = torch.randperm(cfg.n_spins, generator=gen)
+        obs_mask = torch.zeros(cfg.n_spins, dtype=torch.bool)
+        obs_mask[perm[:n_obs]] = True
+        obs_mask = obs_mask.to(device=device)
 
     model = VanillaRNN(
         VanillaRNNConfig(
@@ -96,8 +145,7 @@ def train_spin_prediction(cfg: SpinTrainConfig) -> Dict[str, Any]:
             A=A,
             meta=meta,
         )
-        x = states[:, :-1, :]
-        y_true = states[:, 1:, :]
+        x, y_true = _build_task_pair(states, cfg, obs_mask=obs_mask)
 
         y_pred, _ = model(x, return_states=False)
         loss = loss_fn(y_pred, y_true)
@@ -120,8 +168,7 @@ def train_spin_prediction(cfg: SpinTrainConfig) -> Dict[str, Any]:
                     A=A,
                     meta=meta,
                 )
-                v_x = val_states[:, :-1, :]
-                v_y = val_states[:, 1:, :]
+                v_x, v_y = _build_task_pair(val_states, cfg, obs_mask=obs_mask)
                 v_pred, _ = model(v_x, return_states=False)
                 val_loss = float(loss_fn(v_pred, v_y).item())
                 zero_loss = float(v_y.pow(2).mean().item())  # MSE of the zero predictor
@@ -149,17 +196,17 @@ def train_spin_prediction(cfg: SpinTrainConfig) -> Dict[str, Any]:
     with open(save_dir / "losses.json", "w") as f:
         json.dump(losses, f)
 
-    torch.save(
-        {
-            "model_state_dict": model.state_dict(),
-            "cfg": cfg_dict,
-            "history": history,
-            "losses": losses,
-            "J0": J0.cpu(),
-            "A": A.cpu(),
-            "meta": meta,
-        },
-        save_dir / "final.pt",
-    )
+    save_blob = {
+        "model_state_dict": model.state_dict(),
+        "cfg": cfg_dict,
+        "history": history,
+        "losses": losses,
+        "J0": J0.cpu(),
+        "A": A.cpu(),
+        "meta": meta,
+    }
+    if obs_mask is not None:
+        save_blob["obs_mask"] = obs_mask.cpu()
+    torch.save(save_blob, save_dir / "final.pt")
 
     return {"model": model, "history": history, "losses": losses, "save_dir": str(save_dir)}

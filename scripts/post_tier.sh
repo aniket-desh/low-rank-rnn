@@ -35,11 +35,14 @@ echo ">> [$tier] git add"
 git add runs_h100/${tier}_*/history.json \
         runs_h100/${tier}_*/config.json \
         runs_h100/${tier}_*/losses.json \
-        runs_h100/${tier}_*/plots 2>/dev/null || true
+        runs_h100/${tier}_*/plots \
+        runs_h100/${tier}_*/lag_alignment.json 2>/dev/null || true
 # Include n=64 final.pt where it isn't gitignored. The .gitignore filters
 # the n=256 / n=1024 ones automatically.
 git add runs_h100/${tier}_*/final.pt 2>/dev/null || true
-git add figures/summary/${tier}_*.png figures/summary/${tier}_stats.md 2>/dev/null || true
+git add figures/summary/${tier}_*.png \
+        figures/summary/${tier}_stats.md \
+        figures/summary/lag_sweep.png 2>/dev/null || true
 git add summary.md 2>/dev/null || true
 
 if git diff --staged --quiet; then

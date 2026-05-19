@@ -40,6 +40,13 @@ data/*
 !data/.gitkeep
 runs/*
 !runs/.gitkeep
+# big checkpoints from H100 sweeps: keep history.json / config.json / plots in
+# git, drop multi-MB final.pt files. The JSON is enough to redraw every figure.
+runs_h100/_smoke_lattice1024/final.pt
+runs_h100/tier3_lattice256_*/final.pt
+runs_h100/tier3_lattice1024_*/final.pt
+runs_h100/tier4_fss_lattice256_*/final.pt
+runs_h100/tier4_fss_lattice1024_*/final.pt
 
 # LaTeX
 *.aux
@@ -56,3 +63,4 @@ runs/*
 .DS_Store
 Thumbs.db
 
+.env

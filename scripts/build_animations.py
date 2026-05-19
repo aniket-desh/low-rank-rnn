@@ -97,9 +97,15 @@ def _ffmpeg_available() -> bool:
 
 def _writer_mp4(fps: int = 30):
     if _ffmpeg_available():
-        return manim.FFMpegWriter(fps=fps, codec="libx264",
-                                   bitrate=4000,
-                                   extra_args=["-pix_fmt", "yuv420p"])
+        # `-vf "pad=ceil(iw/2)*2:ceil(ih/2)*2"` pads the frame to even
+        # dimensions so libx264 (which requires multiples of 2) doesn't bail.
+        return manim.FFMpegWriter(
+            fps=fps, codec="libx264", bitrate=4000,
+            extra_args=[
+                "-pix_fmt", "yuv420p",
+                "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2",
+            ],
+        )
     return None
 
 
@@ -409,10 +415,12 @@ def main():
         print("No checkpoints found. Run scripts/run_animation_sources.sh first.")
         return
 
-    sources_with_ckpts = [p for p in provided if _list_checkpoints(p)]
+    # Resolve to absolute paths so name lookups against RUNS/... succeed.
+    sources_with_ckpts = [p.resolve() for p in provided if _list_checkpoints(p)]
     if not sources_with_ckpts:
         print("No checkpoints found. Run scripts/run_animation_sources.sh first.")
         return
+    by_name = {p.name: p for p in sources_with_ckpts}
 
     # 1. per-run G heatmap
     for p in sources_with_ckpts:
@@ -422,17 +430,17 @@ def main():
     beta_runs = []
     for beta in (0.200, 0.440, 0.800):
         btag = f"{beta:.3f}".replace(".", "p")
-        p = RUNS / f"animation_lattice64_beta{btag}_next_state"
-        if p in sources_with_ckpts:
-            beta_runs.append(p)
+        name = f"animation_lattice64_beta{btag}_next_state"
+        if name in by_name:
+            beta_runs.append(by_name[name])
     if len(beta_runs) >= 2:
         anim_singular_spectrum_triptych(beta_runs, args.out)
         anim_dashboard(beta_runs, args.out)
 
     # 3. top modes at β=0.44
-    p44 = RUNS / "animation_lattice64_beta0p440_next_state"
-    if p44 in sources_with_ckpts:
-        anim_top_modes(p44, args.out)
+    name44 = "animation_lattice64_beta0p440_next_state"
+    if name44 in by_name:
+        anim_top_modes(by_name[name44], args.out)
 
 
 if __name__ == "__main__":

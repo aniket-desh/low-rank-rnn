@@ -120,17 +120,24 @@ def train_spin_prediction(cfg: SpinTrainConfig) -> Dict[str, Any]:
                     A=A,
                     meta=meta,
                 )
+                v_x = val_states[:, :-1, :]
+                v_y = val_states[:, 1:, :]
+                v_pred, _ = model(v_x, return_states=False)
+                val_loss = float(loss_fn(v_pred, v_y).item())
+                zero_loss = float(v_y.pow(2).mean().item())  # MSE of the zero predictor
                 report = geometry_report(model, J0, A, val_states, meta, k=cfg.align_k)
             report["epoch"] = epoch
             report["loss"] = float(loss.item())
+            report["val_loss"] = val_loss
+            report["zero_loss"] = zero_loss
+            report["delta_baseline"] = (zero_loss - val_loss) / max(zero_loss, 1e-12)
             report["wall_s"] = time.time() - t0
             history.append(report)
             print(
-                f"[epoch {epoch:04d}] loss={loss.item():.4e} "
+                f"[epoch {epoch:04d}] train_loss={loss.item():.4e} "
+                f"val={val_loss:.4e} (zero={zero_loss:.3f}, Δ={report['delta_baseline']:+.3f}) "
                 f"eff_rank_G={report['eff_rank_G']:.2f} "
-                f"align_G_A={report['align_G_A']:.3f} "
-                f"align_G_C={report['align_G_C']:.3f} "
-                f"align_G_lag={report['align_G_lag']:.3f} "
+                f"align[A,C,lag]={report['align_G_A']:.3f}/{report['align_G_C']:.3f}/{report['align_G_lag']:.3f} "
                 f"(rand_A={report['align_random_A']:.3f})"
             )
 

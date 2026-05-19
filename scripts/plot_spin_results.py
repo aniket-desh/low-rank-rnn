@@ -66,14 +66,31 @@ def plot_run(run_dir: Path) -> None:
 
     epochs = [h["epoch"] for h in history]
 
-    # 1. Loss curve.
+    # 1. Loss curve + zero-predictor baseline.
     fig, ax = plt.subplots(figsize=(6, 4))
-    ax.plot(np.arange(1, len(losses) + 1), losses, lw=1.0, color="tab:blue")
+    ax.plot(np.arange(1, len(losses) + 1), losses, lw=1.0, color="tab:blue", label="train MSE")
+    if all("val_loss" in h for h in history):
+        ax.plot(epochs, [h["val_loss"] for h in history], "o-", color="tab:green", label="val MSE")
+        zero = [h["zero_loss"] for h in history]
+        ax.axhline(float(np.mean(zero)), color="tab:red", lw=1, ls="--", alpha=0.6,
+                   label=f"zero predictor ≈ {np.mean(zero):.3f}")
     ax.set_xlabel("epoch")
     ax.set_ylabel("MSE loss")
     ax.set_title(f"loss — {run_dir.name}")
+    ax.legend(fontsize=8)
     ax.grid(True, alpha=0.3)
     _save(fig, out / "01_loss.png")
+
+    # 1b. Relative improvement over zero predictor.
+    if all("delta_baseline" in h for h in history):
+        fig, ax = plt.subplots(figsize=(6, 4))
+        ax.plot(epochs, [h["delta_baseline"] for h in history], "o-", color="tab:purple")
+        ax.axhline(0.0, color="k", lw=0.7, alpha=0.5)
+        ax.set_xlabel("epoch")
+        ax.set_ylabel(r"$\Delta_{\mathrm{baseline}} = (L_{\rm zero} - L_{\rm val}) / L_{\rm zero}$")
+        ax.set_title("relative improvement over zero predictor")
+        ax.grid(True, alpha=0.3)
+        _save(fig, out / "01b_delta_baseline.png")
 
     # 2. Singular spectrum of Delta J at first / last eval.
     fig, ax = plt.subplots(figsize=(6, 4))

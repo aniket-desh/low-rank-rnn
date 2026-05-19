@@ -133,6 +133,36 @@ def tier4():
     _scaling("4")
 
 
+def tier6():
+    """tier6_zoom_lattice{n}_beta{p-decimal}_seed{s}"""
+    pat = re.compile(
+        r"tier6_zoom_lattice(?P<n>\d+)_beta(?P<beta>\d+p\d+)_seed(?P<seed>\d+)"
+    )
+    by_n = defaultdict(lambda: defaultdict(list))
+    for d in sorted(RUNS.glob("tier6_zoom_*")):
+        if not d.is_dir():
+            continue
+        m = pat.search(d.name)
+        if not m or not (d / "history.json").exists():
+            continue
+        cfg, hist = _load(d)
+        by_n[int(m["n"])][float(cfg["beta"])].append(hist[-1])
+    if not by_n:
+        print("(no tier6 results yet)"); return
+    for n in sorted(by_n.keys()):
+        print(f"\n### n={n}\n")
+        print("| β | n seeds | Δ_baseline | r_eff(G) | align(G,A) | align(G,C) | align(G,Cτ) |")
+        print("|---|---|---|---|---|---|---|")
+        data = by_n[n]
+        for beta in sorted(data.keys()):
+            rows = data[beta]
+            cells = [f"{beta:g}", f"{len(rows)}"]
+            for k in METRICS:
+                mean, std = _mean_std([r[k] for r in rows])
+                cells.append(_fmt(mean, std))
+            print("| " + " | ".join(cells) + " |")
+
+
 def tier5():
     """tier5_{task}_lattice_2d_beta{btag}_seed{s}"""
     pat = re.compile(
@@ -162,7 +192,10 @@ def tier5():
             print("| " + " | ".join(cells) + " |")
 
 
-BUILDERS = {"tier1": tier1, "tier2": tier2, "tier3": tier3, "tier4": tier4, "tier5": tier5}
+BUILDERS = {
+    "tier1": tier1, "tier2": tier2, "tier3": tier3,
+    "tier4": tier4, "tier5": tier5, "tier6": tier6,
+}
 
 
 def main():

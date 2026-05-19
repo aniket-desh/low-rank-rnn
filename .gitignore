@@ -64,3 +64,10 @@ runs_h100/tier4_fss_lattice1024_*/final.pt
 Thumbs.db
 
 .env
+
+# Blog animations and per-run checkpoints — large binary blobs. Code, summaries,
+# CSVs and small static images are fine to commit; mp4/gif and checkpoints are
+# generated artifacts that live alongside the runs but not in git.
+runs_h100/**/checkpoints/
+figures/blog/animations/*.mp4
+figures/blog/animations/*.gif

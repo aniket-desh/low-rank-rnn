@@ -45,6 +45,11 @@ class SpinTrainConfig:
     task: str = "next_state"
     mask_frac: float = 0.3       # fraction CORRUPTED for denoise (1 - keep prob)
     obs_frac: float = 0.5        # fraction OBSERVED for partial
+    # Checkpoint cadence — 0 disables intermediate checkpointing. Each
+    # checkpoint contains enough to reconstruct G = R J B at that epoch
+    # but excludes optimizer state, so animation builders can replay
+    # training without inflating run dir size too much.
+    save_every: int = 0
 
 
 def _ising_config_from(cfg: SpinTrainConfig) -> IsingConfig:
@@ -128,6 +133,9 @@ def train_spin_prediction(cfg: SpinTrainConfig) -> Dict[str, Any]:
 
     save_dir = Path(cfg.save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
+    ckpt_dir = save_dir / "checkpoints"
+    if cfg.save_every > 0:
+        ckpt_dir.mkdir(parents=True, exist_ok=True)
 
     history: List[Dict[str, Any]] = []
     losses: List[float] = []
@@ -187,6 +195,18 @@ def train_spin_prediction(cfg: SpinTrainConfig) -> Dict[str, Any]:
                 f"align[A,C,lag]={report['align_G_A']:.3f}/{report['align_G_C']:.3f}/{report['align_G_lag']:.3f} "
                 f"(rand_A={report['align_random_A']:.3f})"
             )
+
+        if cfg.save_every > 0 and epoch % cfg.save_every == 0:
+            ckpt = {
+                "epoch": epoch,
+                "model_state_dict": {k: v.detach().cpu() for k, v in model.state_dict().items()},
+                "cfg": asdict(cfg),
+                "J0": J0.detach().cpu(),
+                "A": A.detach().cpu(),
+                "meta": meta,
+                "history_so_far": list(history),
+            }
+            torch.save(ckpt, ckpt_dir / f"epoch_{epoch:04d}.pt")
 
     cfg_dict = asdict(cfg)
     with open(save_dir / "config.json", "w") as f:

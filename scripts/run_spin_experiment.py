@@ -60,6 +60,9 @@ def main() -> None:
                    help="denoise: fraction of input coords corrupted to iid ±1")
     p.add_argument("--obs-frac", type=float, default=0.5,
                    help="partial: fraction of coords observed (fixed per run)")
+    p.add_argument("--save-every", type=int, default=0,
+                   help="save lightweight checkpoints every N epochs into checkpoints/ "
+                        "(0 disables). Used by animation pipelines.")
     args = p.parse_args()
 
     cfg = SpinTrainConfig(
@@ -88,6 +91,7 @@ def main() -> None:
         task=args.task,
         mask_frac=args.mask_frac,
         obs_frac=args.obs_frac,
+        save_every=args.save_every,
     )
     train_spin_prediction(cfg)
 
